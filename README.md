@@ -11,6 +11,10 @@
 wget https://raw.githubusercontent.com/byJoey/idx-free/refs/heads/main/install.sh
 bash install.sh
 ```
+## vps或者软路由安装火狐
+```
+bash <(curl -l -s https://raw.githubusercontent.com/byJoey/idx-free/refs/heads/main/Firefox.sh)
+```
 ## 核心改动说明
 
 原脚本中，UUID 需要手动指定一个固定的值，例如：
