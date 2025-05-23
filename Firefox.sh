@@ -1,35 +1,48 @@
 #!/bin/bash
 
-FONT_DIR="/root/docker/firefox_fonts"
-FONT_FILE="NotoSansSC-Regular.otf"
+# --- 配置部分 ---
+FONT_DIR="/root/docker/firefox_fonts" # 宿主机上存放字体的目录
+FONT_FILE="NotoSansSC-Regular.otf" # 字体文件名，请确保与下载的字体文件匹配
+# 稳定且直接指向思源黑体简体中文常规体 .otf 格式的下载链接
 FONT_DOWNLOAD_URL="https://github.com/notofonts/noto-cjk/raw/main/Sans/SubsetOTF/SC/NotoSansSC-Regular.otf" 
-CONTAINER_NAME="FireFox"
-DISPLAY_WIDTH="1920"
-DISPLAY_HEIGHT="1080"
-TZ="Asia/Shanghai"
-CONFIG_VOLUME_PATH="/root/docker/firefox"
+CONTAINER_NAME="FireFox" # 您的 Docker 容器名称
+DISPLAY_WIDTH="1920" # 显示宽度
+DISPLAY_HEIGHT="1080" # 显示高度
+TZ="Asia/Shanghai" # 时区
+CONFIG_VOLUME_PATH="/root/docker/firefox" # 容器配置持久化路径
+# --- 配置部分结束 ---
 
+# --- 辅助函数：生成随机密码 ---
 generate_password() {
-    head /dev/urandom | tr -dc A-Za-z0-9@#%^&*_+-= | head -c 16
+    # 修正 tr 命令，确保字符集正确并限制输出长度
+    # LC_ALL=C 确保 tr 在 POSIX locale 下运行，避免字符集问题
+    # tr -dc 'A-Za-z0-9@#%^&*_+-=' 转义了所有特殊字符，确保它们被视为字面字符
+    # head -c 16 截断为16个字符
+    LC_ALL=C tr -dc 'A-Za-z0-9@#%^&*_+-=' < /dev/urandom | head -c 16
 }
 
+# --- 辅助函数：查找可用端口 ---
 find_available_port() {
     local start_port=15800
-    local end_port=16000
+    local end_port=16000 # 查找范围
     for (( port=start_port; port<=end_port; ++port ))
     do
+        # 检查端口是否被占用 (tcp)
+        # lsof 可能需要安装 (sudo apt install lsof)
         if ! lsof -i tcp:"$port" &>/dev/null; then
+            # 检查端口是否被占用 (udp)
             if ! lsof -i udp:"$port" &>/dev/null; then
                 echo "$port"
                 return 0
             fi
         fi
     done
-    return 1
+    return 1 # 未找到可用端口
 }
 
 echo "--- Firefox Docker 容器智能管理脚本 ---"
 
+# --- 0. 检查 Docker 是否安装 ---
 echo ""
 echo "--- 检查 Docker 安装 ---"
 if ! command -v docker &> /dev/null; then
@@ -47,6 +60,7 @@ else
     echo "Docker 已安装。"
 fi
 
+# --- 1. 交互式设置 VNC 密码 ---
 echo ""
 echo "--- 设置 VNC 连接密码 ---"
 while true; do
@@ -62,6 +76,7 @@ while true; do
     fi
 done
 
+# --- 2. 交互式设置 Web VNC 端口 ---
 echo ""
 echo "--- 设置 Web VNC 端口 ---"
 while true; do
@@ -76,6 +91,8 @@ while true; do
         fi
     elif [[ "$WEB_LISTENING_PORT_INPUT" =~ ^[0-9]+$ ]] && [ "$WEB_LISTENING_PORT_INPUT" -ge 1024 ] && [ "$WEB_LISTENING_PORT_INPUT" -le 65535 ]; then
         WEB_LISTENING_PORT="$WEB_LISTENING_PORT_INPUT"
+        # 验证手动输入的端口是否可用
+        # lsof 可能需要安装 (sudo apt install lsof)
         if lsof -i tcp:"$WEB_LISTENING_PORT" &>/dev/null || lsof -i udp:"$WEB_LISTENING_PORT" &>/dev/null; then
             echo "警告: 端口 $WEB_LISTENING_PORT 似乎已被占用。请选择其他端口。"
         else
@@ -86,6 +103,7 @@ while true; do
     fi
 done
 
+# --- 3. 容器管理逻辑 ---
 echo ""
 echo "--- 容器管理 ---"
 if docker inspect "$CONTAINER_NAME" &>/dev/null; then
@@ -93,7 +111,7 @@ if docker inspect "$CONTAINER_NAME" &>/dev/null; then
     if [ "$(docker ps -q -f name=$CONTAINER_NAME)" ]; then
         echo "容器 '$CONTAINER_NAME' 正在运行。"
         read -p "容器 '$CONTAINER_NAME' 正在运行。是否要卸载它 (停止并删除容器及数据)? (y/N): " UNINSTALL_CHOICE
-        UNINSTALL_CHOICE=${UNINSTALL_CHOICE,,}
+        UNINSTALL_CHOICE=${UNINSTALL_CHOICE,,} # 转换为小写
         if [[ "$UNINSTALL_CHOICE" == "y" ]]; then
             echo "正在停止并删除容器 '$CONTAINER_NAME'..."
             docker stop "$CONTAINER_NAME" &>/dev/null
@@ -123,15 +141,17 @@ if docker inspect "$CONTAINER_NAME" &>/dev/null; then
         fi
         echo "容器 '$CONTAINER_NAME' 启动成功。"
 
+        # 更新 VNC 密码和 Web 端口
         echo "尝试更新容器 '$CONTAINER_NAME' 的 VNC 密码和 Web 端口..."
+        # sed 命令需要root权限，如果脚本不是root运行，这里会失败
         docker exec "$CONTAINER_NAME" bash -c "sed -i 's/^VNC_PASSWORD=.*/VNC_PASSWORD=$VNC_PASSWORD_INPUT/' /etc/cont-init.d/00-set-env"
         docker exec "$CONTAINER_NAME" bash -c "sed -i 's/^WEB_LISTENING_PORT=.*/WEB_LISTENING_PORT=$WEB_LISTENING_PORT/' /etc/cont-init.d/00-set-env"
-        docker restart "$CONTAINER_NAME"
+        docker restart "$CONTAINER_NAME" # 重启以应用新密码和端口
         echo "容器 '$CONTAINER_NAME' 已重启，VNC 密码和 Web 端口已更新。"
     fi
 else
     echo "容器 '$CONTAINER_NAME' 不存在，正在创建并启动..."
-    mkdir -p "$CONFIG_VOLUME_PATH"
+    mkdir -p "$CONFIG_VOLUME_PATH" # 确保宿主机配置目录存在
     docker run -d \
       --name "$CONTAINER_NAME" \
       --network host \
@@ -151,8 +171,9 @@ fi
 
 echo ""
 echo "Firefox 容器访问地址: http://{您的服务器IP}:$WEB_LISTENING_PORT"
-echo "您的 VNC 密码是: $VNC_PASSWORD_INPUT"
+echo "您的 VNC 密码是: $VNC_PASSWORD_INPUT" # 再次显示密码，方便用户查看
 
+# --- 4. 配置防火墙 ---
 echo ""
 echo "--- 配置防火墙 (UFW) ---"
 if command -v ufw &> /dev/null; then
