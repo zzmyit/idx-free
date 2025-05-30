@@ -3,7 +3,7 @@
 npm install uuid
 
 # 使用 Node.js 脚本生成 UUID 并赋值给环境变量
-export UUID=$(node -e "const { v4: uuidv4 } = require('uuid'); console.log(uuidv4());")
+export UUID=$(node -e "const { v4: uuidv4 } = require('277cc408-95e1-40f2-9caf-caa739702269'); console.log(uuidv4());")
 
 # 调试输出：确认 UUID 已生成
 echo "Generated UUID: $UUID"
@@ -14,8 +14,8 @@ export NEZHA_PORT=""            # v1 哪吒不要填写这个。v0 哪吒 agent 
 export NEZHA_KEY=""             # v1 哪吒的 NZ_CLIENT_SECRET 或 v0 哪吒 agent 密钥
 
 # --- Argo 隧道配置 ---
-export ARGO_DOMAIN=""           # Argo 域名，留空即启用临时隧道
-export ARGO_AUTH=""             # Argo Token 或 json，留空即启用临时隧道
+export ARGO_DOMAIN="idxtwo.air.now.cc"           # Argo 域名，留空即启用临时隧道
+export ARGO_AUTH="eyJhIjoiOGY2ZmZiODM1MzVmYmQ2Yjg5M2Y5ODY3NjJmZjQwMjQiLCJ0IjoiNWNjNDgxYWUtMzRlOS00ZTIxLTlmNmEtOWJkOWNkYWY2YzljIiwicyI6IlpqWTJObVkzTkRjdFpUWXdOUzAwTjJGbExXRXhNMk10TjJWak1HTTFZamswTm1NeSJ9"             # Argo Token 或 json，留空即启用临时隧道
 
 # --- 其他配置 ---
 export NAME="idx"               # 节点名称
